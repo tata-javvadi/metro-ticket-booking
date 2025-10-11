@@ -1,4 +1,4 @@
-package com.metro_ticket_booking.metro_ticket_booking;
+package com.metro.booking;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
