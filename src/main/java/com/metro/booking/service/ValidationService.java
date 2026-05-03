@@ -20,13 +20,13 @@ public class ValidationService {
     public String validateTicket(String ticketId, String stationId, String scanType) {
         log.info("Validating ticket [{}] at station [{}] for scanType [{}]", ticketId, stationId, scanType);
 
-        // ✅ Step 1: Quick Redis check
+        // Step 1: Quick Redis check
         boolean isActive = stationRedisRepository.isTicketActive(stationId, ticketId);
         if (!isActive) {
-            return "❌ Ticket not active at this station or expired.";
+            return "Ticket not active at this station or expired.";
         }
 
-        // ✅ Step 2: Retrieve full ticket details
+        // Step 2: Retrieve full ticket details
         Ticket ticket = ticketJpaRepository.findById(ticketId).orElse(null);
         if (ticket == null) {
             // Remove stale entry if exists in Redis
@@ -34,57 +34,57 @@ public class ValidationService {
             return "❌ Ticket not found in database.";
         }
 
-        // ✅ Step 3: Expiry check
+        // Step 3: Expiry check
         if (ticket.getExpiryTime().isBefore(LocalDateTime.now())) {
             stationRedisRepository.removeTicket(stationId, ticketId);
-            return "⏰ Ticket expired.";
+            return "Ticket expired.";
         }
 
-        // ✅ Step 4: Handle based on scan type
+        // Step 4: Handle based on scan type
         return switch (scanType.toUpperCase()) {
             case "ENTRY" -> handleEntryScan(ticket, stationId);
             case "EXIT" -> handleExitScan(ticket, stationId);
-            default -> "❗ Invalid scan type. Use 'ENTRY' or 'EXIT'.";
+            default -> "Invalid scan type. Use 'ENTRY' or 'EXIT'.";
         };
     }
 
     private String handleEntryScan(Ticket ticket, String stationId) {
         if (ticket.isEntryScanned()) {
-            return "⚠️ Ticket already scanned at entry.";
+            return "Ticket already scanned at entry.";
         }
 
         if (!ticket.getSourceStation().equalsIgnoreCase(stationId)) {
-            return "🚫 Invalid entry station. Expected: " + ticket.getSourceStation();
+            return "Invalid entry station. Expected: " + ticket.getSourceStation();
         }
 
         ticket.setEntryScanned(true);
         ticketJpaRepository.save(ticket);
 
-        // ✅ Remove from Redis at source station after entry
+        // Remove from Redis at source station after entry
         stationRedisRepository.removeTicket(stationId, ticket.getTicketId());
 
-        return "✅ Entry successful at station: " + stationId;
+        return "Entry successful at station: " + stationId;
     }
 
     private String handleExitScan(Ticket ticket, String stationId) {
         if (!ticket.isEntryScanned()) {
-            return "🚫 Ticket not scanned at entry.";
+            return "Ticket not scanned at entry.";
         }
 
         if (ticket.isUsed()) {
-            return "⚠️ Ticket already used for exit.";
+            return "Ticket already used for exit.";
         }
 
         if (!ticket.getDestinationStation().equalsIgnoreCase(stationId)) {
-            return "🚫 Invalid exit station. Expected: " + ticket.getDestinationStation();
+            return "Invalid exit station. Expected: " + ticket.getDestinationStation();
         }
 
         ticket.setUsed(true);
         ticketJpaRepository.save(ticket);
 
-        // ✅ Remove from Redis on exit
+        // Remove from Redis on exit
         stationRedisRepository.removeTicket(stationId, ticket.getTicketId());
 
-        return "✅ Exit successful at station: " + stationId;
+        return "Exit successful at station: " + stationId;
     }
 }
